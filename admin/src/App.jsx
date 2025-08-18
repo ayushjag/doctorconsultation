@@ -1,4 +1,4 @@
-import React, { useContext } from 'react'; // <-- COMMA REMOVED HERE
+import React, { useContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -20,7 +20,8 @@ import AllConsultations from './pages/Admin/AllConsultations';
 import DoctorDashboard from './pages/Doctor/DoctorDashboard';
 import DoctorProfile from './pages/Doctor/DoctorProfile';
 // You will need to create this page for doctors to reply to chats
-// import DoctorChatPage from './pages/Doctor/DoctorChatPage'; 
+import DoctorChatPage from './pages/Doctor/DoctorChatPage'; 
+import DoctorSignup from './pages/Doctor/DoctorSignup'; 
 
 const App = () => {
     const { dToken } = useContext(DoctorContext);
@@ -43,6 +44,7 @@ const App = () => {
             <Routes>
                 {/* Login Page: If not logged in, show Login. If logged in, redirect to the correct dashboard. */}
                 <Route path="/" element={!aToken && !dToken ? <Login /> : (aToken ? <Navigate to="/admin/dashboard" /> : <Navigate to="/doctor/dashboard" />)} />
+                <Route path="/doctor/signup" element={<DoctorSignup />} /> 
 
                 {/* --- Admin Portal Routes --- */}
                 <Route path="/admin/*" element={
@@ -72,7 +74,7 @@ const App = () => {
                                 <Routes>
                                     <Route path="dashboard" element={<DoctorDashboard />} />
                                     <Route path="profile" element={<DoctorProfile />} />
-                                    {/* <Route path="chat/:chatId" element={<DoctorChatPage />} /> */}
+                                    <Route path="chat/:chatId" element={<DoctorChatPage />} />
                                 </Routes>
                             </main>
                         </div>

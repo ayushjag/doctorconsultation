@@ -1,11 +1,23 @@
 import multer from "multer";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 
-const storage = multer.diskStorage({
-    filename: function (req, file, callback) {
-        callback(null, file.originalname)
-    }
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_SECRET_KEY
 });
 
-const upload = multer({ storage: storage })
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: "doctor_profiles", // Folder in Cloudinary to store images
+        format: async (req, file) => "png", // supports promises as well
+        public_id: (req, file) => `${file.fieldname}-${Date.now()}`,
+    },
+});
 
-export default upload
+const upload = multer({ storage: storage });
+
+export default upload;

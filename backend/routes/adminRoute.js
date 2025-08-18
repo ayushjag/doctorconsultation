@@ -29,7 +29,7 @@ adminRouter.use(authAdmin);
 adminRouter.get("/dashboard", adminDashboard);
 
 // --- Doctor Management ---
-adminRouter.post("/add-doctor", upload.single('image'), addDoctor);
+adminRouter.post("/add-doctor", addDoctor);
 adminRouter.get("/all-doctors", allDoctors);
 adminRouter.post("/change-availability", changeAvailablity); // Admin can change doctor availability
 

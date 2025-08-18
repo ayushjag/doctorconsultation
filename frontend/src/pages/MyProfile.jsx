@@ -37,7 +37,7 @@ const MyProfile = () => {
         }
 
         try {
-            const { data } = await axios.post(`${backendUrl}/api/user/update-profile`, formData, { headers: { token } });
+            const { data } = await axios.patch(`${backendUrl}/api/user/profile`, formData, { headers: { Authorization: `Bearer ${token}` } });
             if (data.success) {
                 toast.success(data.message);
                 await loadUserProfileData(); // Reload fresh data from backend

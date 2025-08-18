@@ -7,6 +7,7 @@ import Chat from "../models/Chat.js";
 import { v2 as cloudinary } from 'cloudinary';
 import razorpay from 'razorpay';
 import crypto from 'crypto';
+import sendEmail from "../utils/sendEmail.js"; // <-- ADD THIS LINE
 
 const razorpayInstance = new razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
@@ -191,9 +192,12 @@ const getSingleChat = async (req, res) => {
     }
 };
 
-const registerUser = async (req, res) => {
+
+const requestUserRegistrationOTP = async (req, res) => {
     try {
         const { name, email, password } = req.body;
+
+        // Validation
         if (!name || !email || !password) {
             return res.status(400).json({ success: false, message: 'Missing Details' });
         }
@@ -203,16 +207,71 @@ const registerUser = async (req, res) => {
         if (password.length < 8) {
             return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
         }
+
+        // Check if a VERIFIED user with this email already exists
+        const existingUser = await userModel.findOne({ email, isVerified: true });
+        if (existingUser) {
+            return res.json({ success: false, message: "User with this email already exists." });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const salt = await bcrypt.genSalt(10);
+        const hashedOTP = await bcrypt.hash(otp, salt);
         const hashedPassword = await bcrypt.hash(password, salt);
-        const userData = { name, email, password: hashedPassword };
-        const newUser = new userModel(userData);
-        const user = await newUser.save();
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
-        res.status(201).json({ success: true, token });
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        // Create or update the unverified user record
+        await userModel.findOneAndUpdate(
+            { email, isVerified: false },
+            { name, email, password: hashedPassword, otp: hashedOTP, otpExpires, isVerified: false },
+            { upsert: true, new: true }
+        );
+
+        // Send OTP to user's email
+        const message = `<p>Your OTP for HealthLife registration is: <h2><b>${otp}</b></h2> This is valid for 10 minutes.</p>`;
+        await sendEmail({ email, subject: 'HealthLife - Email Verification', message });
+
+        res.json({ success: true, message: "OTP sent to your email. Please verify." });
+
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: error.message });
+        console.log(error);
+        res.status(500).json({ success: false, message: "Error sending OTP." });
+    }
+};
+
+const verifyUserOTP = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        const user = await userModel.findOne({ email });
+
+        if (!user) {
+            return res.json({ success: false, message: "Signup process not initiated for this email." });
+        }
+        if (user.isVerified) {
+            return res.json({ success: false, message: "This email is already verified." });
+        }
+        if (user.otpExpires < new Date()) {
+            return res.json({ success: false, message: "OTP has expired. Please try signing up again." });
+        }
+
+        const isMatch = await bcrypt.compare(otp, user.otp);
+        if (!isMatch) {
+            return res.json({ success: false, message: "Invalid OTP." });
+        }
+
+        // Verification successful
+        user.isVerified = true;
+        user.otp = undefined;
+        user.otpExpires = undefined;
+        await user.save();
+        
+        // You can optionally generate a token here if you want to auto-login,
+        // but as per your last request, we will not.
+        res.json({ success: true, message: "Email verified successfully!" });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ success: false, message: "Error during verification." });
     }
 };
 
@@ -239,7 +298,8 @@ const loginUser = async (req, res) => {
 // === Final Export List ===
 export {
     loginUser,
-    registerUser,
+     requestUserRegistrationOTP, // <-- ADD THIS
+    verifyUserOTP, // <-- AND THIS,
     getProfile,
     updateProfile,
     initiateChatPayment,

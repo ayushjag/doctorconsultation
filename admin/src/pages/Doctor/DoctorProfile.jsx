@@ -12,6 +12,8 @@ const DoctorProfile = () => {
     const [originalData, setOriginalData] = useState(null); // For cancel functionality
     const [isEdit, setIsEdit] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
 
     const getProfileData = async () => {
         try {
@@ -20,6 +22,7 @@ const DoctorProfile = () => {
             if (data.success) {
                 setProfileData(data.profileData);
                 setOriginalData(data.profileData); // Set initial state for cancel
+                setImagePreviewUrl(data.profileData.image); // Set initial preview to current image
             }
         } catch (error) {
             toast.error("Failed to load profile.");
@@ -32,10 +35,48 @@ const DoctorProfile = () => {
         if (dToken) getProfileData();
     }, [dToken]);
 
+    // Cleanup for image preview URL
+    useEffect(() => {
+        return () => {
+            if (imagePreviewUrl && imagePreviewUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(imagePreviewUrl);
+            }
+        };
+    }, [imagePreviewUrl]);
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImageFile(file);
+            setImagePreviewUrl(URL.createObjectURL(file));
+        } else {
+            setImageFile(null);
+            setImagePreviewUrl(profileData.image); // Revert to original if no file selected
+        }
+    };
+
     const handleSaveChanges = async () => {
         try {
-            // Use PATCH for updating existing data
-            const { data } = await axios.patch(`${backendUrl}/api/doctor/profile`, profileData, { headers: { Authorization: `Bearer ${dToken}` } });
+            const formData = new FormData();
+            // Append all profile data
+            for (const key in profileData) {
+                // Exclude image as it's handled separately if a new file is selected
+                if (key !== 'image' && profileData[key] !== null) {
+                    formData.append(key, profileData[key]);
+                }
+            }
+
+            // Append the new image file if selected
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+
+            const { data } = await axios.patch(`${backendUrl}/api/doctor/profile`, formData, {
+                headers: {
+                    Authorization: `Bearer ${dToken}`,
+                    'Content-Type': 'multipart/form-data' // Important for file uploads
+                }
+            });
             if (data.success) {
                 toast.success(data.message);
                 setIsEdit(false);
@@ -78,7 +119,24 @@ const DoctorProfile = () => {
 
             <div className="bg-white p-8 rounded-lg shadow-md">
                 <div className="flex flex-col sm:flex-row items-center gap-6 mb-8 pb-8 border-b">
-                    <img className='w-32 h-32 rounded-full object-cover border-4 border-white shadow-sm' src={profileData.image} alt="Profile" />
+                    <div className="relative w-32 h-32">
+                        <img className='w-32 h-32 rounded-full object-cover border-4 border-white shadow-sm' src={imagePreviewUrl || profileData.image} alt="Profile" />
+                        {isEdit && (
+                            <label htmlFor="image-upload" className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 cursor-pointer hover:bg-blue-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-4 4 4 4-4V5h-2a1 1 0 100 2h2v8z" clipRule="evenodd" />
+                                </svg>
+                                <input
+                                    id="image-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleImageChange}
+                                    disabled={!isEdit}
+                                />
+                            </label>
+                        )}
+                    </div>
                     <div className="text-center sm:text-left">
                         <h2 className="text-3xl font-bold text-gray-800">{profileData.name}</h2>
                         <p className="text-gray-500 mt-1">{profileData.email}</p>

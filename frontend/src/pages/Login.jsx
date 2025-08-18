@@ -10,46 +10,77 @@ const Spinner = () => (
 );
 
 const Login = () => {
-    const [state, setState] = useState('Login');
+    // --- FIX #1: Change 'state' to 'stage' to manage three views ---
+    const [stage, setStage] = useState('Login'); // Can be 'Login', 'Sign Up', or 'Verify OTP'
+    
+    // --- Form states ---
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [otp, setOtp] = useState(''); // New state for OTP input
     const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
-    
-    // --- FIX #1: Get the handleLogin function from context ---
-    // Instead of using `setToken` directly, we use the function designed for this job.
     const { backendUrl, token, handleLogin } = useContext(AppContext);
 
-    const onSubmitHandler = async (event) => {
+    // --- FIX #2: Create separate handlers for each action ---
+
+    // Handler for Login
+    const handleLoginSubmit = async (event) => {
         event.preventDefault();
         setLoading(true);
-
-        const url = state === 'Sign Up' 
-            ? `${backendUrl}/api/user/register` 
-            : `${backendUrl}/api/user/login`;
-        
-        const payload = state === 'Sign Up' 
-            ? { name, email, password } 
-            : { email, password };
-
         try {
-            const { data } = await axios.post(url, payload);
+            const { data } = await axios.post(`${backendUrl}/api/user/login`, { email, password });
             if (data.success) {
-                // --- FIX #2: Call the centralized handleLogin function ---
-                // This function ensures localStorage AND the React state are updated correctly,
-                // which forces all components like the Navbar to re-render.
                 handleLogin(data.token);
-                
-                toast.success(`Welcome${state === 'Sign Up' ? ` ${name}` : ''}!`);
+                toast.success(`Welcome back!`);
                 navigate('/');
             } else {
                 toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'An error occurred.');
-            console.error(error);
+            toast.error(error.response?.data?.message || 'Login failed.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Handler for Requesting OTP
+    const handleRegisterSubmit = async (event) => {
+        event.preventDefault();
+        setLoading(true);
+        try {
+            const { data } = await axios.post(`${backendUrl}/api/user/register/request-otp`, { name, email, password });
+            if (data.success) {
+                toast.success(data.message);
+                setStage('Verify OTP'); // Move to the next stage
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to send OTP.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Handler for Verifying OTP
+    const handleVerifySubmit = async (event) => {
+        event.preventDefault();
+        setLoading(true);
+        try {
+            const { data } = await axios.post(`${backendUrl}/api/user/register/verify-otp`, { email, otp });
+            if (data.success) {
+                toast.success("Registration successful! Please log in.");
+                setStage('Login'); // Take user back to the login screen
+                // Clear password and OTP fields for security/UX
+                setPassword('');
+                setOtp('');
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'OTP verification failed.');
         } finally {
             setLoading(false);
         }
@@ -62,52 +93,77 @@ const Login = () => {
     }, [token, navigate]);
 
     return (
-        // ... Your JSX is perfect and does not need to be changed ...
         <div className="min-h-[calc(100vh-80px)] bg-gray-50 flex items-center justify-center p-4">
             <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl grid md:grid-cols-2 overflow-hidden">
                 <div className="p-8 md:p-12">
-                    <form onSubmit={onSubmitHandler} className="flex flex-col gap-5">
-                        <h1 className="text-3xl font-bold text-gray-800">{state}</h1>
-                        <p className="text-gray-500">
-                            {state === 'Sign Up' 
-                                ? 'Create an account to get started.' 
-                                : 'Welcome back! Please login to your account.'}
-                        </p>
-                        {state === 'Sign Up' && (
+
+                    {/* --- FIX #3: Conditionally render the correct form based on the stage --- */}
+
+                    {/* LOGIN FORM */}
+                    {stage === 'Login' && (
+                        <form onSubmit={handleLoginSubmit} className="flex flex-col gap-5">
+                            <h1 className="text-3xl font-bold text-gray-800">Login</h1>
+                            <p className="text-gray-500">Welcome back! Please login to your account.</p>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">Email</label>
+                                <input id="email" onChange={(e) => setEmail(e.target.value)} value={email} className="w-full px-4 py-2 bg-gray-100 border rounded-lg" type="email" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
+                                <input id="password" onChange={(e) => setPassword(e.target.value)} value={password} className="w-full px-4 py-2 bg-gray-100 border rounded-lg" type="password" required />
+                            </div>
+                            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 my-2 rounded-lg font-semibold flex items-center justify-center disabled:bg-blue-400">
+                                {loading ? <Spinner /> : 'Login'}
+                            </button>
+                            <p className="text-center text-sm text-gray-600">
+                                Don't have an account? <span onClick={() => setStage('Sign Up')} className="text-blue-600 font-semibold underline cursor-pointer">Sign up</span>
+                            </p>
+                        </form>
+                    )}
+
+                    {/* SIGN UP FORM */}
+                    {stage === 'Sign Up' && (
+                        <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-5">
+                            <h1 className="text-3xl font-bold text-gray-800">Sign Up</h1>
+                            <p className="text-gray-500">Create an account to get started.</p>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="name">Full Name</label>
-                                <input id="name" onChange={(e) => setName(e.target.value)} value={name} className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" type="text" required />
+                                <input id="name" onChange={(e) => setName(e.target.value)} value={name} className="w-full px-4 py-2 bg-gray-100 border rounded-lg" type="text" required />
                             </div>
-                        )}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">Email</label>
-                            <input id="email" onChange={(e) => setEmail(e.target.value)} value={email} className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" type="email" required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
-                            <input id="password" onChange={(e) => setPassword(e.target.value)} value={password} className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" type="password" required />
-                        </div>
-                        <button 
-                            type="submit" 
-                            disabled={loading}
-                            className="w-full bg-blue-600 text-white py-3 my-2 rounded-lg text-base font-semibold hover:bg-blue-700 transition-all flex items-center justify-center disabled:bg-blue-400"
-                        >
-                            {loading ? <Spinner /> : (state === 'Sign Up' ? 'Create Account' : 'Login')}
-                        </button>
-                        <p className="text-center text-sm text-gray-600">
-                            {state === 'Sign Up'
-                                ? <>Already have an account? <span onClick={() => setState('Login')} className="text-blue-600 font-semibold underline cursor-pointer">Login here</span></>
-                                : <>Don't have an account? <span onClick={() => setState('Sign Up')} className="text-blue-600 font-semibold underline cursor-pointer">Sign up</span></>
-                            }
-                        </p>
-                    </form>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">Email</label>
+                                <input id="email" onChange={(e) => setEmail(e.target.value)} value={email} className="w-full px-4 py-2 bg-gray-100 border rounded-lg" type="email" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
+                                <input id="password" onChange={(e) => setPassword(e.target.value)} value={password} className="w-full px-4 py-2 bg-gray-100 border rounded-lg" type="password" required />
+                            </div>
+                            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 my-2 rounded-lg font-semibold flex items-center justify-center disabled:bg-blue-400">
+                                {loading ? <Spinner /> : 'Create Account'}
+                            </button>
+                            <p className="text-center text-sm text-gray-600">
+                                Already have an account? <span onClick={() => setStage('Login')} className="text-blue-600 font-semibold underline cursor-pointer">Login here</span>
+                            </p>
+                        </form>
+                    )}
+
+                    {/* VERIFY OTP FORM */}
+                    {stage === 'Verify OTP' && (
+                        <form onSubmit={handleVerifySubmit} className="flex flex-col gap-5">
+                            <h1 className="text-3xl font-bold text-gray-800">Verify Your Email</h1>
+                            <p className="text-gray-500">An OTP has been sent to <strong>{email}</strong>. Please enter it below to complete your registration.</p>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="otp">Enter OTP</label>
+                                <input id="otp" onChange={(e) => setOtp(e.target.value)} value={otp} className="w-full px-4 py-2 bg-gray-100 border rounded-lg" type="text" required />
+                            </div>
+                            <button type="submit" disabled={loading} className="w-full bg-green-600 text-white py-3 my-2 rounded-lg font-semibold flex items-center justify-center disabled:bg-green-400">
+                                {loading ? <Spinner /> : 'Verify & Complete'}
+                            </button>
+                        </form>
+                    )}
                 </div>
                 <div className="hidden md:block">
-                    <img 
-                        src={assets.login_image || 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=2070&auto=format&fit=crop'} 
-                        alt="Doctor and patient" 
-                        className="w-full h-full object-cover"
-                    />
+                    <img src={assets.login_image || '...'} alt="Doctor and patient" className="w-full h-full object-cover" />
                 </div>
             </div>
         </div>

@@ -3,20 +3,19 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { DoctorContext } from '../context/DoctorContext';
 import { AdminContext } from '../context/AdminContext';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate, Link } from 'react-router-dom';
 
 const Login = () => {
-    const [state, setState] = useState('Admin');
+    const [state, setState] = useState('Doctor');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false); // Add a loading state
+    const [isLoading, setIsLoading] = useState(false);
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
-    const navigate = useNavigate(); // Initialize navigate
+    const navigate = useNavigate();
 
-    // --- FIX #1: Use the centralized login handler functions ---
     const { handleDoctorLogin } = useContext(DoctorContext);
-    const { handleAdminLogin } = useContext(AdminContext); // Assuming you add this to AdminContext
+    const { handleAdminLogin } = useContext(AdminContext);
 
     const onSubmitHandler = async (event) => {
         event.preventDefault();
@@ -24,24 +23,33 @@ const Login = () => {
 
         try {
             if (state === 'Admin') {
+                // Admin login logic remains the same
                 const { data } = await axios.post(`${backendUrl}/api/admin/login`, { email, password });
                 if (data.success) {
-                    // --- FIX #2: Call the centralized login handler ---
                     handleAdminLogin(data.token);
                     toast.success("Admin login successful!");
-                    navigate('/admin/dashboard'); // Redirect admin
+                    navigate('/admin/dashboard');
                 } else {
                     toast.error(data.message);
                 }
             } else { // Doctor Login
+                
+                // --- THIS IS THE SECTION TO CHANGE ---
+                
                 const { data } = await axios.post(`${backendUrl}/api/doctor/login`, { email, password });
                 if (data.success) {
-                    // --- FIX #2: Call the centralized login handler ---
                     handleDoctorLogin(data.token);
                     toast.success("Doctor login successful!");
-                    // The logic to redirect to profile or dashboard will be handled
-                    // by the main app component listening to the token change.
-                    navigate('/doctor/dashboard'); // Redirect doctor
+
+                    // Check the profileStatus received from the backend.
+                    if (data.profileStatus === 'incomplete') {
+                        // If the profile is incomplete, redirect to the profile page.
+                        toast.info("Please complete your profile to activate your account.");
+                        navigate('/doctor/profile');
+                    } else {
+                        // Otherwise, redirect to the dashboard as usual.
+                        navigate('/doctor/dashboard');
+                    }
                 } else {
                     toast.error(data.message);
                 }
@@ -63,7 +71,7 @@ const Login = () => {
                 </div>
                 <div className='w-full'>
                     <label className="block text-sm font-medium mb-1">Password</label>
-                    <input onChange={(e) => setPassword(e.target.value)} value={password} className='border border-gray-300 rounded-lg w-full p-2.5 mt-1 focus:ring-2 focus:ring-blue-500' type="password" required />
+                    <input onChange={(e) => setPassword(e.target.value)} value={password} className='border border-gray-300 rounded-lg w-full p-2.5 mt-1 mb-3 leading-tight focus:outline-none focus:shadow-outline' type="password" required />
                 </div>
                 <button 
                     type="submit" 
@@ -75,7 +83,11 @@ const Login = () => {
                 <p className="text-center w-full text-sm">
                     {state === 'Admin'
                         ? <>Are you a Doctor? <span onClick={() => setState('Doctor')} className='text-blue-600 font-semibold underline cursor-pointer'>Login here</span></>
-                        : <>Are you an Admin? <span onClick={() => setState('Admin')} className='text-blue-600 font-semibold underline cursor-pointer'>Login here</span></>
+                        : <>
+                            Don't have an account? <Link to="/doctor/signup" className='text-blue-600 font-semibold underline cursor-pointer'>Sign Up here</Link>
+                            <br />
+                            Are you an Admin? <span onClick={() => setState('Admin')} className='text-blue-600 font-semibold underline cursor-pointer'>Login here</span>
+                          </>
                     }
                 </p>
             </div>

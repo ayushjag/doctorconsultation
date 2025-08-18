@@ -33,9 +33,9 @@ const addDoctor = async (req, res) => {
             return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newDoctor = new doctorModel({ name, email, password: hashedPassword, profileStatus: 'incomplete' });
+        const newDoctor = new doctorModel({ name, email, password: hashedPassword });
         await newDoctor.save();
-        res.json({ success: true, message: 'Pre-approved doctor account created.' });
+        res.json({ success: true, message: "Doctor added successfully. The doctor can now log in and complete their profile." });
     } catch (error) {
         if (error.code === 11000) {
             return res.status(400).json({ success: false, message: "A doctor with this email already exists." });

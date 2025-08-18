@@ -41,7 +41,7 @@ const Navbar = () => {
       {/* Right Side */}
       <div className='flex items-center gap-4'>
         {token && userData ? (
-          <div className='relative group'>
+          <div className='relative group py-2 -my-2'>
             <div className='flex items-center gap-2 cursor-pointer'>
               <img className='w-8 h-8 rounded-full object-cover border' src={userData.image} alt="user" />
               <img className='w-3' src={assets.dropdown_icon} alt="dropdown" />
