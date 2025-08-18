@@ -10,12 +10,13 @@ import chatrouter from "./routes/chatRoutes.js"
 
 // app config
 const app = express()
-
+const port = process.env.PORT || 4000
 connectDB()
 connectCloudinary()
 
 // middlewares
-app.use(express.json())
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cors())
 
 // api endpoints
@@ -28,4 +29,4 @@ app.get("/", (req, res) => {
   res.send("API Working")
 });
 
-export default app;
+app.listen(port, () => console.log(`Server started on PORT:${port}`))
